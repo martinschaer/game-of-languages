@@ -1,7 +1,7 @@
 use std::io::Write;
 
 macro_rules! actions {
-    ($($name:ident = $value:expr => $desc:expr),*) => {
+    ($($name:ident = $value:expr => ($label:expr,$desc:expr)),*) => {
         enum ActionKey {
             $($name = $value,)*
         }
@@ -11,18 +11,19 @@ macro_rules! actions {
                 pub const $name: (ActionKey, &str) = (ActionKey::$name, $desc);
             )*
         }
+        pub const MENU: &'static str = concat![$(stringify!($value), ": ", $label, ", "),*];
     };
 }
 
 actions! {
-    WALK = 1 => "Walking",
-    RUN = 2 => "Running",
-    END = 0 => "Ending"
+    WALK = 1 => ("Walk", "Walking"),
+    RUN = 2 => ("Run", "Running"),
+    END = 0 => ("End", "Ending")
 }
 
 fn main() {
     loop {
-        println!("1: Walk, 2: Run, 0: End");
+        println!("{}", MENU);
         print!("> ");
         std::io::stdout().flush().unwrap();
 
