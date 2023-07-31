@@ -1,17 +1,25 @@
 use std::io::Write;
 
+
 macro_rules! actions {
     ($($name:ident = $value:expr => ($label:expr,$desc:expr)),*) => {
         enum ActionKey {
             $($name = $value,)*
         }
         struct Action;
+        #[allow(dead_code)]
         impl Action {
             $(
                 pub const $name: (ActionKey, &str) = (ActionKey::$name, $desc);
             )*
         }
         pub const MENU: &'static str = concat![$(stringify!($value), ": ", $label, ", "),*];
+        pub fn get_action_desc(key: i32) -> &'static str {
+            match key {
+                $($value => $desc,)*
+                _ => unreachable!()
+            }
+        }
     };
 }
 
@@ -31,11 +39,11 @@ fn main() {
         std::io::stdin().read_line(&mut input).unwrap();
 
         match input.trim().parse::<i32>() {
-            Ok(1) => println!("{}", Action::WALK.1),
-            Ok(2) => println!("{}", Action::RUN.1),
             Ok(0) => {
-                println!("{}", Action::END.1);
                 break;
+            }
+            Ok(x @ 1..=2) => {
+                println!("{}", get_action_desc(x));
             }
             _ => {
                 println!("Invalid input");
