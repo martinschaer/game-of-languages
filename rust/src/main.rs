@@ -1,19 +1,23 @@
 use std::io::Write;
 
-enum ActionKey {
-    WALK = 1,
-    RUN = 2,
-    JUMP = 3,
-    END = 0,
+macro_rules! actions {
+    ($($name:ident = $value:expr => $desc:expr),*) => {
+        enum ActionKey {
+            $($name = $value,)*
+        }
+        struct Action;
+        impl Action {
+            $(
+                pub const $name: (ActionKey, &str) = (ActionKey::$name, $desc);
+            )*
+        }
+    };
 }
 
-struct Action;
-
-impl Action {
-    pub const WALK: (ActionKey, &str) = (ActionKey::WALK, "Walking");
-    pub const RUN: (ActionKey, &str) = (ActionKey::RUN, "Running");
-    pub const JUMP: (ActionKey, &str) = (ActionKey::JUMP, "Jumping");
-    pub const END: (ActionKey, &str) = (ActionKey::END, "Ending");
+actions! {
+    WALK = 1 => "Walking",
+    RUN = 2 => "Running",
+    END = 0 => "Ending"
 }
 
 fn main() {
@@ -24,22 +28,18 @@ fn main() {
 
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).unwrap();
-        let action = match input.trim().parse::<i32>() {
-            Ok(1) => Action::WALK,
-            Ok(2) => Action::RUN,
-            Ok(3) => Action::JUMP,
-            Ok(0) => Action::END,
+
+        match input.trim().parse::<i32>() {
+            Ok(1) => println!("{}", Action::WALK.1),
+            Ok(2) => println!("{}", Action::RUN.1),
+            Ok(0) => {
+                println!("{}", Action::END.1);
+                break;
+            }
             _ => {
                 println!("Invalid input");
                 continue;
             }
-        };
-
-        match action.0 {
-            ActionKey::WALK => println!("{}", action.1),
-            ActionKey::RUN => println!("{}", action.1),
-            ActionKey::JUMP => println!("{}", action.1),
-            ActionKey::END => break,
         };
     }
 }
