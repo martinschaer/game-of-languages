@@ -7,7 +7,7 @@ pub struct Action {
 }
 
 macro_rules! actions {
-    ($($name:ident = $value:expr => ($label:expr,$desc:expr)),*) => {
+    ($($name:ident, $value:expr, $label:expr, $desc:expr),*) => {
         pub enum ActionKeys {
             $($name = $value,)*
         }
@@ -32,9 +32,9 @@ macro_rules! actions {
 }
 
 actions! {
-    WALK = 1 => ("Walk", "Walking"),
-    RUN = 2 => ("Run", "Running"),
-    END = 0 => ("End", "Ending")
+    WALK, 1, "Walk", "Walking",
+    RUN, 2, "Run", "Running",
+    END, 0, "End", "Ending"
 }
 
 fn main() {
