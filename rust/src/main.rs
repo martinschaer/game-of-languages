@@ -2,12 +2,12 @@ use std::io::Write;
 
 pub struct Action {
     key: ActionKeys,
-    // label: &'static str,
     desc: &'static str,
+    cb: Option<fn()>,
 }
 
 macro_rules! actions {
-    ($($name:ident, $value:expr, $label:expr, $desc:expr),*) => {
+    ($($name:ident => ($value:expr, $label:expr, $desc:expr, $fn:expr)),*) => {
         pub enum ActionKeys {
             $($name = $value,)*
         }
@@ -16,8 +16,8 @@ macro_rules! actions {
             $(
                 pub const $name: Action = Action {
                     key: ActionKeys::$name,
-                    // label: $label,
                     desc: $desc,
+                    cb: $fn,
                 };
             )*
         }
@@ -32,9 +32,9 @@ macro_rules! actions {
 }
 
 actions! {
-    WALK, 1, "Walk", "Walking",
-    RUN, 2, "Run", "Running",
-    END, 0, "End", "Ending"
+    WALK => (1, "Walk", "Walking", None),
+    RUN => (2, "Run", "Running", Some(|| println!("Run!"))),
+    END => (0, "End", "Ending", None)
 }
 
 fn main() {
@@ -53,9 +53,14 @@ fn main() {
                         ActionKeys::END => {
                             break;
                         }
-                        _ => {
-                            println!("{}", a.desc);
-                        }
+                        _ => match a.cb {
+                            None => {
+                                println!("{}", a.desc);
+                            }
+                            _ => {
+                                a.cb.unwrap()();
+                            }
+                        },
                     },
                     _ => {
                         println!("Invalid input");
