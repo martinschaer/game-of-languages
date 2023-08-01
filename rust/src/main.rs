@@ -1,38 +1,10 @@
+use crate::engine::{actions, Action};
 use std::io::Write;
 
-pub struct Action {
-    key: ActionKeys,
-    desc: &'static str,
-    cb: Option<fn(state: &mut State)>,
-}
+mod engine;
 
-struct State {
+pub struct State {
     distance: u32,
-}
-
-macro_rules! actions {
-    ($($name:ident => ($value:expr, $label:expr, $desc:expr, $fn:expr)),*) => {
-        pub enum ActionKeys {
-            $($name = $value,)*
-        }
-        struct Actions;
-        impl Actions {
-            $(
-                pub const $name: Action = Action {
-                    key: ActionKeys::$name,
-                    desc: $desc,
-                    cb: $fn,
-                };
-            )*
-        }
-        pub const MENU: &'static str = concat![$(stringify!($value), ": ", $label, ", "),*];
-        pub fn get_action(key: i32) -> Option<Action> {
-            match key {
-                $($value => Some(Actions::$name),)*
-                _ => None
-            }
-        }
-    };
 }
 
 fn walk(state: &mut State) {
@@ -57,28 +29,28 @@ fn main() {
         std::io::stdin().read_line(&mut input).unwrap();
 
         match input.trim().parse::<i32>() {
-            Ok(x) => {
-                match get_action(x) {
-                    Some(a) => {
-                        match a.key {
+            Ok(num) => {
+                match get_action(num) {
+                    Some(action) => {
+                        match action.key {
                             ActionKeys::END => {
                                 break;
                             }
-                            _ => match a.cb {
+                            _ => match action.cb {
                                 Some(cb) => cb(&mut state),
                                 None => {}
                             },
                         }
-                        println!("{}", a.desc);
+                        println!("{}", action.desc);
                     }
-                    _ => {
-                        println!("Invalid input");
+                    None => {
+                        println!("Invalid input, {} is not an option", num);
                         continue;
                     }
                 };
             }
             Err(_) => {
-                println!("Invalid input");
+                println!("Invalid input, enter a number.");
                 continue;
             }
         }
