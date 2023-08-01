@@ -3,7 +3,11 @@ use std::io::Write;
 pub struct Action {
     key: ActionKeys,
     desc: &'static str,
-    cb: Option<fn()>,
+    cb: Option<fn(state: &mut State)>,
+}
+
+struct State {
+    distance: u32,
 }
 
 macro_rules! actions {
@@ -31,13 +35,19 @@ macro_rules! actions {
     };
 }
 
+fn walk(state: &mut State) {
+    state.distance += 1;
+}
+
 actions! {
-    WALK => (1, "Walk", "Walking", None),
-    RUN => (2, "Run", "Running", Some(|| println!("Run!"))),
+    WALK => (1, "Walk", "Walking", Some(walk)),
+    RUN => (2, "Run", "Running", Some(|state| state.distance += 2)),
     END => (0, "End", "Ending", None)
 }
 
 fn main() {
+    let mut state = State { distance: 0 };
+
     loop {
         println!("{}", MENU);
         print!("> ");
@@ -49,19 +59,18 @@ fn main() {
         match input.trim().parse::<i32>() {
             Ok(x) => {
                 match get_action(x) {
-                    Some(a) => match a.key {
-                        ActionKeys::END => {
-                            break;
+                    Some(a) => {
+                        match a.key {
+                            ActionKeys::END => {
+                                break;
+                            }
+                            _ => match a.cb {
+                                Some(cb) => cb(&mut state),
+                                None => {}
+                            },
                         }
-                        _ => match a.cb {
-                            None => {
-                                println!("{}", a.desc);
-                            }
-                            _ => {
-                                a.cb.unwrap()();
-                            }
-                        },
-                    },
+                        println!("{}", a.desc);
+                    }
                     _ => {
                         println!("Invalid input");
                         continue;
@@ -73,5 +82,7 @@ fn main() {
                 continue;
             }
         }
+
+        println!("Distance: {}", state.distance);
     }
 }
