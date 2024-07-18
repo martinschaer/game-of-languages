@@ -10,20 +10,23 @@ enum Action {
 }
 
 trait Wearable {
-    fn calculate_damage(&self, hit: u32) -> u32;
+    fn calculate_damage(&mut self, hit: f32) -> f32;
 }
 
 struct Armor {
-    resistance: u32,
+    resistance: f32,
 }
 
 impl Wearable for Armor {
-    fn calculate_damage(&self, hit: u32) -> u32 {
-        if hit > self.resistance {
+    fn calculate_damage(&mut self, hit: f32) -> f32 {
+        let damage = if hit > self.resistance {
             hit - self.resistance
         } else {
-            0
-        }
+            0.
+        };
+        self.resistance -= (hit - self.resistance) * 0.1;
+        self.resistance = self.resistance.max(0.);
+        damage
     }
 }
 
@@ -32,7 +35,7 @@ struct Player {
     distance: i32,
     // used to signal the enemy thread to stop
     ending: bool,
-    wearables: Vec<Box<dyn Wearable>>,
+    wearables: Vec<Box<dyn Wearable + Send + Sync>>,
 }
 
 fn print_prompt(player: &Player) {
@@ -56,8 +59,16 @@ fn enemy_thread(player: Arc<Mutex<Player>>) {
         // pseudo random
         let x = (now.elapsed().as_secs() as f32 + player.distance as f32 + player.hp as f32).sin();
         if x > 0.75 {
-            player.hp = player.hp.saturating_sub(1);
-            println!("Enemy attacked!");
+            let mut damage = f32::MAX;
+            for wearable in &mut player.wearables {
+                let d = wearable.calculate_damage(5.);
+                if d < damage {
+                    damage = d;
+                }
+            }
+            let damage = damage.floor() as u32;
+            player.hp = player.hp.saturating_sub(damage);
+            println!("Enemy attacked! Damage taken: {}", damage);
             print_prompt(&player);
             std::thread::sleep(std::time::Duration::from_secs_f32(x));
         }
@@ -69,7 +80,7 @@ fn main() {
         hp: 100,
         distance: 0,
         ending: false,
-        wearables: vec![Box::new(Armor { resistance: 3 })],
+        wearables: vec![Box::new(Armor { resistance: 3. })],
     }));
 
     // start the enemy thread
