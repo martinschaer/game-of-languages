@@ -1,7 +1,11 @@
+use std::fmt::Display;
 use std::{
     io::Write,
     sync::{Arc, Mutex},
 };
+
+// -----------------------------------------------------------------------------
+// Data
 
 enum Action {
     Walk,
@@ -9,19 +13,71 @@ enum Action {
     End,
 }
 
+trait Wearable: Display {
+    fn calculate_damage(&mut self, hit: f32) -> f32;
+    fn resistance(&self) -> f32;
+}
+
+struct Armor {
+    resistance: f32,
+}
+
+impl Wearable for Armor {
+    fn resistance(&self) -> f32 {
+        self.resistance
+    }
+    fn calculate_damage(&mut self, hit: f32) -> f32 {
+        let damage = if hit > self.resistance {
+            hit - self.resistance
+        } else {
+            0.
+        };
+        self.resistance -= (hit - self.resistance) * 0.1;
+        self.resistance = self.resistance.max(0.);
+        damage
+    }
+}
+
+impl Display for Armor {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "Resistance: {}", self.resistance)
+    }
+}
+
+struct WearableVec<'a>(&'a Vec<Box<dyn Wearable + Send + Sync>>);
+
+impl<'a> Display for WearableVec<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut arr = Vec::new();
+        for bw in self.0 {
+            arr.push(format!("Resistance: {}", bw.resistance()));
+        }
+        write!(f, "{}", arr.join(", "))
+    }
+}
+
 struct Player {
     hp: u32,
     distance: i32,
     // used to signal the enemy thread to stop
     ending: bool,
+    wearables: Vec<Box<dyn Wearable + Send + Sync>>,
 }
 
-fn print_prompt(player: &Player) {
-    println!("HP: {} | Distance: {}", player.hp, player.distance);
-    println!("1: Walk, 2: Run, 0: End");
-    print!("> ");
-    std::io::stdout().flush().unwrap();
+impl Display for Player {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            f,
+            "HP: {} | Distance: {} | Wearables: {}",
+            self.hp,
+            self.distance,
+            WearableVec(&self.wearables)
+        )
+    }
 }
+
+// -----------------------------------------------------------------------------
+// Enemy thread
 
 fn enemy_thread(player: Arc<Mutex<Player>>) {
     let now = std::time::Instant::now();
@@ -35,21 +91,36 @@ fn enemy_thread(player: Arc<Mutex<Player>>) {
         }
 
         // pseudo random
-        let x = (now.elapsed().as_secs() as f32 + player.distance as f32 + player.hp as f32).sin();
-        if x > 0.75 {
-            player.hp = player.hp.saturating_sub(1);
-            println!("Enemy attacked!");
+        let x = pseudo_rand(now.elapsed().as_secs_f32());
+        if x > 0.5 {
+            let mut damage = f32::MAX;
+            for wearable in &mut player.wearables {
+                let d = wearable.calculate_damage(5.);
+                if d < damage {
+                    damage = d;
+                }
+            }
+            let damage = damage.floor() as u32;
+            player.hp = player.hp.saturating_sub(damage);
+            println!("Enemy attacked! Damage taken: {}", damage);
             print_prompt(&player);
             std::thread::sleep(std::time::Duration::from_secs_f32(x));
         }
     }
 }
 
+// -----------------------------------------------------------------------------
+// Main
+
 fn main() {
     let player = Arc::new(Mutex::new(Player {
         hp: 100,
         distance: 0,
         ending: false,
+        wearables: vec![
+            Box::new(Armor { resistance: 3. }),
+            Box::new(Armor { resistance: 4. }),
+        ],
     }));
 
     // start the enemy thread
@@ -102,4 +173,31 @@ fn main() {
 
     // wait for the enemy thread to finish
     enemy_thread_handle.join().unwrap();
+}
+
+// -----------------------------------------------------------------------------
+// Utils
+
+fn print_prompt(player: &Player) {
+    println!("{}", player);
+    println!("1: Walk, 2: Run, 0: End");
+    print!("> ");
+    std::io::stdout().flush().unwrap();
+}
+
+fn pseudo_rand(seed: f32) -> f32 {
+    let seed = (seed * 69069.) + 1.;
+    seed.cos() / 2. + 0.5
+}
+
+// -----------------------------------------------------------------------------
+// Tests
+
+#[test]
+fn pseudo_rand_test() {
+    for i in 0..20 {
+        let x = pseudo_rand(i as f32);
+        println!("{}: {}", i, x);
+        assert!(x >= 0. && x < 1.);
+    }
 }
